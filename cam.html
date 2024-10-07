@@ -57,10 +57,22 @@
             font-size: 20px;
             margin: 10px 0;
         }
+
+        .options {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
     <h1>Camera App</h1>
+    <div class="options">
+        <label>
+            <input type="radio" name="mode" value="photo" checked> Camera (Photo)
+        </label>
+        <label>
+            <input type="radio" name="mode" value="video"> Video Camera
+        </label>
+    </div>
     <div class="camera-container">
         <video id="video" autoplay></video>
         <div id="timer">00:00</div>
@@ -85,70 +97,102 @@
         let recordingTime = 0;
         let timerInterval;
 
-        // Get access to the user's webcam
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
+        // Function to start the video stream
+        function startVideoStream(isVideoMode) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
 
-                // Set up the MediaRecorder
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
+                    // Set up the MediaRecorder for video mode
+                    if (isVideoMode) {
+                        mediaRecorder = new MediaRecorder(stream);
+                        
+                        mediaRecorder.ondataavailable = (event) => {
+                            if (event.data.size > 0) {
+                                recordedChunks.push(event.data);
+                            }
+                        };
+
+                        mediaRecorder.onstop = () => {
+                            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = 'recorded-video.webm';
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            recordedChunks = [];
+                            clearInterval(timerInterval);
+                            timerDisplay.textContent = '00:00'; // Reset timer display
+                        };
                     }
-                };
+                })
+                .catch(err => {
+                    console.error('Error accessing the camera:', err);
+                });
+        }
 
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'recorded-video.webm';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    recordedChunks = [];
-                    clearInterval(timerInterval);
-                    timerDisplay.textContent = '00:00'; // Reset timer display
-                };
-            })
-            .catch(err => {
-                console.error('Error accessing the camera:', err);
+        // Start video stream on load
+        startVideoStream(document.querySelector('input[name="mode"]:checked').value === 'video');
+
+        // Event listener for mode selection
+        document.querySelectorAll('input[name="mode"]').forEach(input => {
+            input.addEventListener('change', (event) => {
+                const isVideoMode = event.target.value === 'video';
+                startVideoStream(isVideoMode);
+                resetControls();
             });
+        });
 
         // Capture the image from the video feed
         snapButton.addEventListener('click', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.style.display = 'block';
+            const selectedMode = document.querySelector('input[name="mode"]:checked').value;
+            if (selectedMode === 'photo') {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.style.display = 'block';
+            }
         });
 
         // Start recording video
         startButton.addEventListener('click', () => {
-            mediaRecorder.start();
-            startButton.disabled = true;
-            stopButton.disabled = false;
-            recordingTime = 0; // Reset recording time
-            timerDisplay.textContent = '00:00'; // Reset timer display
+            if (mediaRecorder) {
+                mediaRecorder.start();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                recordingTime = 0; // Reset recording time
+                timerDisplay.textContent = '00:00'; // Reset timer display
 
-            // Start timer
-            timerInterval = setInterval(() => {
-                recordingTime++;
-                const minutes = String(Math.floor(recordingTime / 60)).padStart(2, '0');
-                const seconds = String(recordingTime % 60).padStart(2, '0');
-                timerDisplay.textContent = `${minutes}:${seconds}`;
-            }, 1000);
+                // Start timer
+                timerInterval = setInterval(() => {
+                    recordingTime++;
+                    const minutes = String(Math.floor(recordingTime / 60)).padStart(2, '0');
+                    const seconds = String(recordingTime % 60).padStart(2, '0');
+                    timerDisplay.textContent = `${minutes}:${seconds}`;
+                }, 1000);
+            }
         });
 
         // Stop recording video
         stopButton.addEventListener('click', () => {
-            mediaRecorder.stop();
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        });
+
+        // Function to reset controls
+        function resetControls() {
             startButton.disabled = false;
             stopButton.disabled = true;
-        });
+            timerDisplay.textContent = '00:00'; // Reset timer display
+            recordedChunks = [];
+            clearInterval(timerInterval);
+        }
     </script>
 </body>
 </html>
