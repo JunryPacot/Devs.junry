@@ -115,14 +115,7 @@
 
                         mediaRecorder.onstop = () => {
                             const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.style.display = 'none';
-                            a.href = url;
-                            a.download = 'recorded-video.webm';
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
+                            saveToFile(blob, 'recorded-video.webm');
                             recordedChunks = [];
                             clearInterval(timerInterval);
                             timerDisplay.textContent = '00:00'; // Reset timer display
@@ -154,6 +147,11 @@
                 canvas.height = video.videoHeight;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 canvas.style.display = 'block';
+
+                // Save the captured image
+                canvas.toBlob((blob) => {
+                    saveToFile(blob, 'captured-image.png');
+                }, 'image/png');
             }
         });
 
@@ -184,6 +182,18 @@
                 stopButton.disabled = true;
             }
         });
+
+        // Function to save file
+        function saveToFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
 
         // Function to reset controls
         function resetControls() {
